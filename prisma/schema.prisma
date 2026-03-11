@@ -9,3 +9,23 @@ generator client {
 datasource db {
   provider = "sqlite"
 }
+
+model Meeting {
+  id            String    @id
+  title         String
+  date          String?
+  participants  String?
+  status        String    @default("uploaded")
+  audioPath     String?   @map("audio_path")
+  audioDuration Float?    @map("audio_duration")
+  transcript    String?
+  summary       String?
+  progress      Int       @default(0)
+  currentStep   String?   @map("current_step")
+  error         String?
+  asrJobId      String?   @map("asr_job_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("meetings")
+}
