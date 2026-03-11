@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FileText, Upload, List } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 export default function MainLayout({
   children,
@@ -37,17 +38,17 @@ export default function MainLayout({
                 const Icon = link.icon;
                 const isActive = pathname === link.href;
                 return (
-                  <Button
+                  <Link
                     key={link.href}
-                    variant={isActive ? "secondary" : "ghost"}
-                    size="sm"
-                    asChild
+                    href={link.href}
+                    className={cn(
+                      buttonVariants({ variant: isActive ? "secondary" : "ghost", size: "sm" }),
+                      "gap-2"
+                    )}
                   >
-                    <Link href={link.href} className="gap-2">
-                      <Icon className="h-4 w-4" />
-                      {link.label}
-                    </Link>
-                  </Button>
+                    <Icon className="h-4 w-4" />
+                    {link.label}
+                  </Link>
                 );
               })}
             </nav>
@@ -58,16 +59,16 @@ export default function MainLayout({
                 const Icon = link.icon;
                 const isActive = pathname === link.href;
                 return (
-                  <Button
+                  <Link
                     key={link.href}
-                    variant={isActive ? "secondary" : "ghost"}
-                    size="icon-sm"
-                    asChild
+                    href={link.href}
+                    aria-label={link.label}
+                    className={cn(
+                      buttonVariants({ variant: isActive ? "secondary" : "ghost", size: "icon-sm" })
+                    )}
                   >
-                    <Link href={link.href} aria-label={link.label}>
-                      <Icon className="h-4 w-4" />
-                    </Link>
-                  </Button>
+                    <Icon className="h-4 w-4" />
+                  </Link>
                 );
               })}
             </nav>
@@ -84,7 +85,7 @@ export default function MainLayout({
       {/* Footer */}
       <footer className="border-t py-4">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          会议纪要生成系统 © {new Date().getFullYear()}
+          会议纪要生成系统 &copy; {new Date().getFullYear()}
         </div>
       </footer>
     </div>
