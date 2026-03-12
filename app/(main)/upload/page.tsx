@@ -14,8 +14,8 @@ export default function UploadPage() {
       description: "会议录音已上传，正在处理中...",
     });
 
-    // Redirect to meeting detail page
-    router.push(`/meetings/${data.meeting_id}`);
+    // Redirect to meeting detail page (note: route is /meeting/[id], not /meetings/[id])
+    router.push(`/meeting/${data.meeting_id}`);
   };
 
   return (
