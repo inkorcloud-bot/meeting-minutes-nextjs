@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server';
 import prisma from '@/lib/db';
 import { llmClient } from '@/lib/llm-client';
 import { getLLMSemaphore } from '@/lib/llm-semaphore';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('api:regenerate-summary');
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -22,6 +25,9 @@ const BLOCKED_STATUSES = ['uploaded', 'processing', 'transcribing', 'summarizing
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
+  const startTime = Date.now();
+
+  log.info('收到重新生成摘要请求', { meetingId: id });
 
   // Fetch meeting from database
   const meeting = await prisma.meeting.findUnique({
@@ -29,6 +35,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   });
 
   if (!meeting) {
+    log.warn('会议不存在', { meetingId: id });
     return new Response(
       formatSSEError('Meeting not found'),
       {
@@ -40,6 +47,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // Status check: reject if meeting is in a blocked status
   if (BLOCKED_STATUSES.includes(meeting.status)) {
+    log.warn('会议状态不允许重新生成摘要', { meetingId: id, status: meeting.status });
     return new Response(
       formatSSEError(`Cannot regenerate summary: meeting is currently in '${meeting.status}' status. Please wait for the current operation to complete.`),
       {
@@ -50,6 +58,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   if (!meeting.transcript) {
+    log.warn('会议没有转录文本', { meetingId: id });
     return new Response(
       formatSSEError('Meeting has no transcript. Please transcribe first.'),
       {
@@ -58,6 +67,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     );
   }
+
+  log.info('开始重新生成摘要', { meetingId: id, title: meeting.title });
 
   // Update meeting status to 're-summarizing' before starting
   await prisma.meeting.update({
@@ -86,9 +97,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       try {
         // Acquire semaphore permit for LLM request
-        console.log(`[regenerate-summary] Waiting for LLM semaphore (queue: ${semaphore.getQueueLength()})`);
+        log.debug('等待 LLM 信号量', { meetingId: id, queueLength: semaphore.getQueueLength() });
         await semaphore.acquire();
-        console.log(`[regenerate-summary] LLM semaphore acquired (available: ${semaphore.getAvailablePermits()}/${semaphore.getMaxPermits()})`);
+        log.debug('LLM 信号量已获取', { 
+          meetingId: id, 
+          available: semaphore.getAvailablePermits(),
+          max: semaphore.getMaxPermits()
+        });
 
         try {
           // Stream LLM response
@@ -106,6 +121,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
           // Check if LLM returned empty content
           if (!fullSummary || fullSummary.trim() === '') {
+            log.error('LLM 返回空内容', { meetingId: id });
+            
             // Update status to error
             await prisma.meeting.update({
               where: { id },
@@ -123,6 +140,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             controller.close();
             return;
           }
+
+          const duration = Date.now() - startTime;
+          log.info('摘要生成完成', { 
+            meetingId: id, 
+            summaryLength: fullSummary.length,
+            duration: `${duration}ms`
+          });
 
           // Update meeting summary in database with completed status
           await prisma.meeting.update({
@@ -144,10 +168,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         } finally {
           // Always release semaphore
           semaphore.release();
-          console.log(`[regenerate-summary] LLM semaphore released (available: ${semaphore.getAvailablePermits()}/${semaphore.getMaxPermits()})`);
+          log.debug('LLM 信号量已释放', { 
+            meetingId: id,
+            available: semaphore.getAvailablePermits(),
+            max: semaphore.getMaxPermits()
+          });
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to regenerate summary';
+        const duration = Date.now() - startTime;
+        
+        log.error('摘要生成失败', { 
+          meetingId: id, 
+          error: errorMessage,
+          duration: `${duration}ms`
+        });
         
         // Update status to error in database
         await prisma.meeting.update({
@@ -169,7 +204,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     
     async cancel() {
       // Handle client disconnect
-      console.log(`[regenerate-summary] Client disconnected for meeting ${id}`);
+      log.warn('客户端断开连接', { meetingId: id });
       
       // Update status to error on client disconnect
       try {
@@ -184,7 +219,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           }
         });
       } catch (dbError) {
-        console.error(`[regenerate-summary] Failed to update status on disconnect:`, dbError);
+        log.error('更新断连状态失败', { 
+          meetingId: id,
+          error: dbError instanceof Error ? dbError.message : String(dbError)
+        });
       }
     }
   });

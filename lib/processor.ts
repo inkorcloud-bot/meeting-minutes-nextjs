@@ -16,7 +16,10 @@ import { asrClient, ASRClientError } from './asr-client';
 import { llmClient } from './llm-client';
 import { config } from './config';
 import { withLLMSemaphore } from './llm-semaphore';
+import { createLogger } from './logger';
 import type { ASRJobStatus } from './types';
+
+const log = createLogger('processor');
 
 /**
  * Progress thresholds for each processing stage
@@ -90,7 +93,7 @@ async function handleFailure(
   meetingId: string,
   errorMessage: string
 ): Promise<void> {
-  console.error(`[Processor] Meeting ${meetingId} failed: ${errorMessage}`);
+  log.error('会议处理失败', { meetingId, error: errorMessage });
 
   await prisma.meeting.update({
     where: { id: meetingId },
@@ -117,7 +120,8 @@ function sleep(ms: number): Promise<void> {
  * @throws Never throws - all errors are caught and stored in the database
  */
 export async function processMeeting(meetingId: string): Promise<void> {
-  console.log(`[Processor] Starting to process meeting: ${meetingId}`);
+  const startTime = Date.now();
+  log.info('开始处理会议', { meetingId });
 
   try {
     // ========================================
@@ -137,14 +141,14 @@ export async function processMeeting(meetingId: string): Promise<void> {
 
     // Check if already processed or processing
     if (meeting.status === STATUS.COMPLETED) {
-      console.log(`[Processor] Meeting ${meetingId} already completed`);
+      log.info('会议已完成，跳过处理', { meetingId });
       return;
     }
 
     if (meeting.status === STATUS.PROCESSING ||
         meeting.status === STATUS.TRANSCRIBING ||
         meeting.status === STATUS.SUMMARIZING) {
-      console.log(`[Processor] Meeting ${meetingId} is already being processed`);
+      log.info('会议正在处理中，跳过', { meetingId, status: meeting.status });
       return;
     }
 
@@ -157,7 +161,7 @@ export async function processMeeting(meetingId: string): Promise<void> {
       STATUS.PROCESSING,
       '开始处理会议录音'
     );
-    console.log(`[Processor] Status updated to processing (5%)`);
+    log.debug('状态更新为处理中', { meetingId, progress: 5 });
 
     // ========================================
     // Step 3: Submit ASR job (10%)
@@ -166,7 +170,7 @@ export async function processMeeting(meetingId: string): Promise<void> {
 
     try {
       asrJobId = await asrClient.submitJob(meeting.audioPath);
-      console.log(`[Processor] ASR job submitted: ${asrJobId}`);
+      log.info('ASR 任务已提交', { meetingId, asrJobId });
 
       // Store ASR job ID for reference
       await prisma.meeting.update({
@@ -184,6 +188,7 @@ export async function processMeeting(meetingId: string): Promise<void> {
       const message = error instanceof ASRClientError
         ? `ASR 提交失败: ${error.message}`
         : `ASR 提交失败: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      log.error('ASR 任务提交失败', { meetingId, error: message });
       throw new Error(message);
     }
 
@@ -221,7 +226,7 @@ export async function processMeeting(meetingId: string): Promise<void> {
         await updateProgress(meetingId, pollProgress, undefined, stepMessage);
 
         if (asrStatus === 'completed') {
-          console.log(`[Processor] ASR job completed after ${pollCount} polls`);
+          log.info('ASR 任务完成', { meetingId, asrJobId, pollCount });
           break;
         }
 
@@ -240,6 +245,7 @@ export async function processMeeting(meetingId: string): Promise<void> {
       const message = error instanceof ASRClientError
         ? `转录状态查询失败: ${error.message}`
         : `转录失败: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      log.error('转录失败', { meetingId, asrJobId, error: message });
       throw new Error(message);
     }
 
@@ -257,7 +263,11 @@ export async function processMeeting(meetingId: string): Promise<void> {
       );
 
       transcriptResult = await asrClient.getJobResult(asrJobId);
-      console.log(`[Processor] Transcription result received, text length: ${transcriptResult.text.length}`);
+      log.info('转录结果获取成功', { 
+        meetingId, 
+        textLength: transcriptResult.text.length,
+        duration: transcriptResult.dur_s 
+      });
 
       // Save transcript to database
       await prisma.meeting.update({
@@ -278,6 +288,7 @@ export async function processMeeting(meetingId: string): Promise<void> {
       const message = error instanceof ASRClientError
         ? `获取转录结果失败: ${error.message}`
         : `保存转录失败: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      log.error('获取转录结果失败', { meetingId, error: message });
       throw new Error(message);
     }
 
@@ -328,11 +339,12 @@ export async function processMeeting(meetingId: string): Promise<void> {
         );
       });
 
-      console.log(`[Processor] Summary generated, length: ${summary.length}`);
+      log.info('摘要生成完成', { meetingId, summaryLength: summary.length });
     } catch (error) {
       const message = error instanceof Error
         ? `生成纪要失败: ${error.message}`
         : '生成纪要失败: Unknown error';
+      log.error('摘要生成失败', { meetingId, error: message });
       throw new Error(message);
     }
 
@@ -351,11 +363,13 @@ export async function processMeeting(meetingId: string): Promise<void> {
         },
       });
 
-      console.log(`[Processor] Meeting ${meetingId} completed successfully`);
+      const duration = Date.now() - startTime;
+      log.info('会议处理完成', { meetingId, title: meeting.title, duration: `${duration}ms` });
     } catch (error) {
       const message = error instanceof Error
         ? `保存纪要失败: ${error.message}`
         : '保存纪要失败: Unknown error';
+      log.error('保存摘要失败', { meetingId, error: message });
       throw new Error(message);
     }
 
@@ -388,21 +402,22 @@ export async function processMeetingWithRetry(
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`[Processor] Processing meeting ${meetingId}, attempt ${attempt}/${maxRetries}`);
+      log.info('处理会议 (带重试)', { meetingId, attempt, maxRetries });
       await processMeeting(meetingId);
       return; // Success, exit
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error');
-      console.error(`[Processor] Attempt ${attempt} failed:`, lastError.message);
+      log.warn('处理尝试失败', { meetingId, attempt, maxRetries, error: lastError.message });
 
       if (attempt < maxRetries) {
-        console.log(`[Processor] Retrying in ${retryDelayMs}ms...`);
+        log.debug('等待重试', { meetingId, delayMs: retryDelayMs });
         await sleep(retryDelayMs);
       }
     }
   }
 
   // All retries exhausted
+  log.error('所有重试失败', { meetingId, maxRetries });
   throw lastError || new Error('All retry attempts failed');
 }
 
@@ -416,11 +431,15 @@ export async function processMeetingsBatch(
   meetingIds: string[],
   concurrency: number = config.llmConcurrency
 ): Promise<Map<string, Error | null>> {
+  log.info('批量处理会议', { count: meetingIds.length, concurrency });
+  
   const results = new Map<string, Error | null>();
 
   // Process in batches based on concurrency limit
   for (let i = 0; i < meetingIds.length; i += concurrency) {
     const batch = meetingIds.slice(i, i + concurrency);
+    
+    log.debug('处理批次', { batchIndex: Math.floor(i / concurrency) + 1, batchSize: batch.length });
 
     const batchResults = await Promise.allSettled(
       batch.map(async (id) => {
@@ -435,11 +454,14 @@ export async function processMeetingsBatch(
       } else {
         // Extract the meeting ID from the error if possible
         const errorMsg = result.reason?.message || 'Unknown error';
-        console.error(`[Processor] Batch processing error: ${errorMsg}`);
+        log.error('批量处理错误', { error: errorMsg });
         // We don't have the meeting ID here, so we need to track it differently
       }
     }
   }
+  
+  const successCount = Array.from(results.values()).filter(v => v === null).length;
+  log.info('批量处理完成', { total: meetingIds.length, success: successCount, failed: meetingIds.length - successCount });
 
   return results;
 }
