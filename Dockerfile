@@ -33,7 +33,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # 创建数据库模板（用于首次启动）
-RUN npx prisma db push --skip-generate && \
+RUN npx prisma db push && \
     mv ./prisma/dev.db /app/meetings.db.template
 
 # ============================================
