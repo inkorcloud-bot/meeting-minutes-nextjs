@@ -5,7 +5,10 @@
  */
 
 import { config } from './config';
+import { createLogger } from './logger';
 import type { ASRJobStatus, TranscribeResult } from './types';
+
+const log = createLogger('asr-client');
 
 /**
  * ASR API 响应类型
@@ -84,6 +87,13 @@ export class ASRClient {
   async submitJob(audioPath: string): Promise<string> {
     const url = `${this.baseUrl}/system/transcribe/submit`;
 
+    log.debug('提交 ASR 任务', { 
+      url, 
+      audioPath, 
+      baseUrl: this.baseUrl,
+      timeout: this.timeout 
+    });
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -96,6 +106,12 @@ export class ASRClient {
 
       if (!response.ok) {
         const errorBody = await this.safeParseError(response);
+        log.error('ASR 任务提交失败', { 
+          url, 
+          status: response.status, 
+          statusText: response.statusText,
+          error: errorBody 
+        });
         throw new ASRClientError(
           `Failed to submit transcription job: ${response.statusText}`,
           response.status,
@@ -106,6 +122,7 @@ export class ASRClient {
       const data = await response.json() as ASRSubmitResponse;
 
       if (!data.job_id) {
+        log.error('ASR 响应缺少 job_id', { url, response: data });
         throw new ASRClientError(
           'Invalid response: missing job_id',
           response.status,
@@ -113,12 +130,24 @@ export class ASRClient {
         );
       }
 
+      log.info('ASR 任务提交成功', { jobId: data.job_id, audioPath });
       return data.job_id;
     } catch (error) {
       if (error instanceof ASRClientError) {
         throw error;
       }
       if (error instanceof Error) {
+        // 详细的网络错误日志
+        const errorCode = (error as NodeJS.ErrnoException)?.code;
+        log.error('ASR 网络错误', { 
+          url, 
+          baseUrl: this.baseUrl,
+          audioPath,
+          error: error.message,
+          errorName: error.name,
+          errorCode,
+          cause: error.cause
+        });
         throw new ASRClientError(
           `Network error while submitting job: ${error.message}`,
           undefined,
@@ -139,6 +168,8 @@ export class ASRClient {
   async getJobStatus(jobId: string): Promise<ASRJobStatus> {
     const url = `${this.baseUrl}/system/transcribe/status/${encodeURIComponent(jobId)}`;
 
+    log.debug('查询 ASR 任务状态', { jobId, url });
+
     try {
       const response = await fetch(url, {
         method: 'GET',
@@ -150,6 +181,12 @@ export class ASRClient {
 
       if (!response.ok) {
         const errorBody = await this.safeParseError(response);
+        log.error('查询 ASR 状态失败', { 
+          jobId, 
+          status: response.status, 
+          statusText: response.statusText,
+          error: errorBody 
+        });
         throw new ASRClientError(
           `Failed to get job status: ${response.statusText}`,
           response.status,
@@ -195,6 +232,8 @@ export class ASRClient {
   async getJobResult(jobId: string): Promise<TranscribeResult> {
     const url = `${this.baseUrl}/system/transcribe/result/${encodeURIComponent(jobId)}`;
 
+    log.debug('获取 ASR 转录结果', { jobId, url });
+
     try {
       const response = await fetch(url, {
         method: 'GET',
@@ -206,6 +245,12 @@ export class ASRClient {
 
       if (!response.ok) {
         const errorBody = await this.safeParseError(response);
+        log.error('获取 ASR 结果失败', { 
+          jobId, 
+          status: response.status, 
+          statusText: response.statusText,
+          error: errorBody 
+        });
         throw new ASRClientError(
           `Failed to get job result: ${response.statusText}`,
           response.status,
@@ -216,6 +261,7 @@ export class ASRClient {
       const data = await response.json() as ASRResultResponse;
 
       if (!data.result) {
+        log.error('ASR 响应缺少 result', { jobId, response: data });
         throw new ASRClientError(
           'Invalid response: missing result',
           response.status,
@@ -223,6 +269,11 @@ export class ASRClient {
         );
       }
 
+      log.info('获取 ASR 结果成功', { 
+        jobId, 
+        textLength: data.result.text?.length,
+        duration: data.result.dur_s 
+      });
       return data.result;
     } catch (error) {
       if (error instanceof ASRClientError) {
