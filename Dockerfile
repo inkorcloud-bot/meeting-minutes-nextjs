@@ -52,18 +52,21 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/app/generated/prisma ./app/generated/prisma
+# 复制 prisma 相关模块（用于 db push）
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # 创建 entrypoint 脚本
 RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
     echo 'set -e' >> /app/entrypoint.sh && \
     echo '' >> /app/entrypoint.sh && \
-    echo '# 确保数据目录存在且有正确权限' >> /app/entrypoint.sh && \
+    echo '# 确保数据目录存在' >> /app/entrypoint.sh && \
     echo 'mkdir -p /app/data /app/uploads' >> /app/entrypoint.sh && \
     echo '' >> /app/entrypoint.sh && \
     echo '# 初始化数据库（如果不存在）' >> /app/entrypoint.sh && \
     echo 'if [ ! -f /app/data/meetings.db ]; then' >> /app/entrypoint.sh && \
     echo '  echo "Initializing database..."' >> /app/entrypoint.sh && \
-    echo '  cd /app && npx prisma db push --skip-generate' >> /app/entrypoint.sh && \
+    echo '  cd /app && ./node_modules/.bin/prisma db push --skip-generate' >> /app/entrypoint.sh && \
     echo 'fi' >> /app/entrypoint.sh && \
     echo '' >> /app/entrypoint.sh && \
     echo 'exec node server.js' >> /app/entrypoint.sh && \
