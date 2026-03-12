@@ -4,6 +4,8 @@
  * 提供异步语音转录功能，支持任务提交、状态查询、结果获取
  */
 
+import { readFile } from 'fs/promises';
+import { basename } from 'path';
 import { config } from './config';
 import { createLogger } from './logger';
 import type { ASRJobStatus, TranscribeResult } from './types';
@@ -11,21 +13,30 @@ import type { ASRJobStatus, TranscribeResult } from './types';
 const log = createLogger('asr-client');
 
 /**
- * ASR API 响应类型
+ * ASR API 响应类型（符合 FireRedASR2S SuccessResponse 结构）
  */
 interface ASRSubmitResponse {
-  job_id: string;
+  code: number;
   message?: string;
+  data: {
+    job_id: string;
+  };
 }
 
 interface ASRStatusResponse {
-  status: ASRJobStatus;
-  progress?: number;
-  message?: string;
+  code: number;
+  data: {
+    job_id: string;
+    status: ASRJobStatus;
+    filename?: string;
+    created_at?: number;
+  };
 }
 
 interface ASRResultResponse {
-  result: TranscribeResult;
+  code: number;
+  message?: string;
+  data: TranscribeResult;
 }
 
 /**
@@ -95,12 +106,14 @@ export class ASRClient {
     });
 
     try {
+      const audioBuffer = await readFile(audioPath);
+      const fileName = basename(audioPath);
+      const formData = new FormData();
+      formData.append('audio', new Blob([audioBuffer]), fileName);
+
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ audio_path: audioPath }),
+        body: formData,
         signal: AbortSignal.timeout(this.timeout),
       });
 
@@ -121,7 +134,7 @@ export class ASRClient {
 
       const data = await response.json() as ASRSubmitResponse;
 
-      if (!data.job_id) {
+      if (!data.data?.job_id) {
         log.error('ASR 响应缺少 job_id', { url, response: data });
         throw new ASRClientError(
           'Invalid response: missing job_id',
@@ -130,8 +143,8 @@ export class ASRClient {
         );
       }
 
-      log.info('ASR 任务提交成功', { jobId: data.job_id, audioPath });
-      return data.job_id;
+      log.info('ASR 任务提交成功', { jobId: data.data.job_id, audioPath });
+      return data.data.job_id;
     } catch (error) {
       if (error instanceof ASRClientError) {
         throw error;
@@ -198,15 +211,15 @@ export class ASRClient {
 
       // 验证状态值
       const validStatuses: ASRJobStatus[] = ['pending', 'processing', 'completed', 'failed'];
-      if (!validStatuses.includes(data.status)) {
+      if (!validStatuses.includes(data.data?.status)) {
         throw new ASRClientError(
-          `Invalid job status: ${data.status}`,
+          `Invalid job status: ${data.data?.status}`,
           response.status,
           data
         );
       }
 
-      return data.status;
+      return data.data.status;
     } catch (error) {
       if (error instanceof ASRClientError) {
         throw error;
@@ -260,10 +273,10 @@ export class ASRClient {
 
       const data = await response.json() as ASRResultResponse;
 
-      if (!data.result) {
-        log.error('ASR 响应缺少 result', { jobId, response: data });
+      if (!data.data?.text) {
+        log.error('ASR 响应缺少转录结果', { jobId, response: data });
         throw new ASRClientError(
-          'Invalid response: missing result',
+          'Invalid response: missing transcription result',
           response.status,
           data
         );
@@ -271,10 +284,10 @@ export class ASRClient {
 
       log.info('获取 ASR 结果成功', { 
         jobId, 
-        textLength: data.result.text?.length,
-        duration: data.result.dur_s 
+        textLength: data.data.text?.length,
+        duration: data.data.dur_s 
       });
-      return data.result;
+      return data.data;
     } catch (error) {
       if (error instanceof ASRClientError) {
         throw error;
