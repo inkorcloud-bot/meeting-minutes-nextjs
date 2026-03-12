@@ -5,10 +5,7 @@
  */
 
 import { config } from './config';
-import { createLogger } from './logger';
 import type { ASRJobStatus, TranscribeResult } from './types';
-
-const log = createLogger('asr-client');
 
 /**
  * ASR API 响应类型
@@ -87,8 +84,6 @@ export class ASRClient {
   async submitJob(audioPath: string): Promise<string> {
     const url = `${this.baseUrl}/system/transcribe/submit`;
 
-    log.debug('提交 ASR 任务', { url, audioPath, baseUrl: this.baseUrl });
-
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -101,12 +96,6 @@ export class ASRClient {
 
       if (!response.ok) {
         const errorBody = await this.safeParseError(response);
-        log.error('ASR 任务提交失败', { 
-          url, 
-          status: response.status, 
-          statusText: response.statusText,
-          error: errorBody 
-        });
         throw new ASRClientError(
           `Failed to submit transcription job: ${response.statusText}`,
           response.status,
@@ -117,7 +106,6 @@ export class ASRClient {
       const data = await response.json() as ASRSubmitResponse;
 
       if (!data.job_id) {
-        log.error('ASR 响应缺少 job_id', { url, response: data });
         throw new ASRClientError(
           'Invalid response: missing job_id',
           response.status,
@@ -125,22 +113,12 @@ export class ASRClient {
         );
       }
 
-      log.info('ASR 任务提交成功', { jobId: data.job_id, audioPath });
       return data.job_id;
     } catch (error) {
       if (error instanceof ASRClientError) {
         throw error;
       }
       if (error instanceof Error) {
-        // 详细的网络错误日志
-        log.error('ASR 网络错误', { 
-          url, 
-          baseUrl: this.baseUrl,
-          audioPath,
-          error: error.message,
-          errorName: error.name,
-          cause: (error as NodeJS.ErrnoException)?.code
-        });
         throw new ASRClientError(
           `Network error while submitting job: ${error.message}`,
           undefined,
