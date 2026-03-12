@@ -13,9 +13,28 @@ interface UploadFormProps {
   onUploadSuccess?: (data: UploadResponseData) => void;
 }
 
-// Allowed audio file types
-const ALLOWED_FILE_TYPES = ["audio/mpeg", "audio/wav", "audio/mp4", "audio/x-m4a", "audio/webm"];
-const ALLOWED_EXTENSIONS = [".mp3", ".wav", ".m4a", ".webm"];
+// Allowed audio file types (MIME types)
+const ALLOWED_FILE_TYPES = [
+  "audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/wave",
+  "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/aac", "audio/x-aac",
+  "audio/ogg", "audio/opus", "audio/webm", "audio/flac", "audio/x-flac",
+  "audio/3gpp", "audio/3gpp2", "audio/amr", "audio/x-amr",
+  "audio/aiff", "audio/x-aiff", "audio/au", "audio/x-au",
+  "audio/x-ms-wma", "audio/x-matroska", "audio/x-mpegurl",
+  "video/mp4", "video/webm", "video/x-matroska", "video/quicktime",
+];
+
+// Allowed file extensions (all ASR supported formats)
+const ALLOWED_EXTENSIONS = [
+  ".3gp", ".3g2", ".8svx", ".aa", ".aac", ".aax", ".ac3", ".act", ".adp", ".adts",
+  ".adx", ".aif", ".aiff", ".amr", ".ape", ".asf", ".ast", ".au", ".avr", ".caf",
+  ".cda", ".dff", ".dsf", ".dsm", ".dss", ".dts", ".eac3", ".ec3", ".f32", ".f64",
+  ".fap", ".flac", ".flv", ".gsm", ".ircam", ".m2ts", ".m4a", ".m4b", ".m4r",
+  ".mka", ".mkv", ".mp2", ".mp3", ".mp4", ".mpc", ".mpp", ".mts", ".nut", ".nsv",
+  ".oga", ".ogg", ".oma", ".opus", ".qcp", ".ra", ".ram", ".rm", ".sln", ".smp",
+  ".snd", ".sox", ".spx", ".tak", ".tta", ".voc", ".w64", ".wav", ".wave", ".webm",
+  ".wma", ".wve", ".wv", ".xa", ".xwma",
+];
 
 type UploadStatus = "idle" | "uploading" | "success" | "error";
 
@@ -52,7 +71,7 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
       setUploadState({
         status: "error",
         progress: 0,
-        error: `不支持的文件类型。请上传 ${ALLOWED_EXTENSIONS.join(", ")} 格式的音频文件。`,
+        error: `不支持的文件类型。支持 MP3, WAV, M4A, AAC, FLAC 等 70+ 种格式。`,
       });
       return;
     }
@@ -173,7 +192,7 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
       <CardHeader>
         <CardTitle>上传会议录音</CardTitle>
         <CardDescription>
-          支持的格式: MP3, WAV, M4A, WebM
+          支持的格式: MP3, WAV, M4A, AAC, FLAC, OGG, OPUS 等 70+ 种音频/视频格式
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -245,7 +264,7 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
                       拖拽文件到此处，或点击选择
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      MP3, WAV, M4A, WebM (最大 500MB)
+                      支持 70+ 种音频/视频格式 (最大 500MB)
                     </p>
                   </div>
                 </>
