@@ -52,7 +52,7 @@ export function MeetingCard({ meeting, onDelete }: MeetingCardProps) {
     meetingStatus === "summarizing"
 
   return (
-    <Link href={`/meetings/${meeting.id}`}>
+    <Link href={`/meeting/${meeting.id}`}>
       <Card className="cursor-pointer transition-colors hover:bg-muted/50">
         <CardHeader>
           <CardTitle className="line-clamp-1">{meeting.title}</CardTitle>
