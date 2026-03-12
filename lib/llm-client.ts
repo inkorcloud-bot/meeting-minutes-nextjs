@@ -38,6 +38,11 @@ interface ChatCompletionRequest {
   temperature?: number;
   max_tokens?: number;
   stream?: boolean;
+  top_p?: number;
+  extra_body?: {
+    enable_thinking?: boolean;
+    thinking_budget?: number;
+  };
 }
 
 /**
@@ -68,6 +73,8 @@ export class LLMClient {
   private model: string;
   private temperature: number;
   private maxTokens: number;
+  private topP: number;
+  private thinkingBudget: number;
 
   constructor() {
     this.baseUrl = config.llmBaseUrl;
@@ -75,6 +82,8 @@ export class LLMClient {
     this.model = config.llmModel;
     this.temperature = config.llmTemperature;
     this.maxTokens = config.llmMaxTokens;
+    this.topP = config.llmTopP;
+    this.thinkingBudget = config.llmThinkingBudget;
   }
 
   /**
@@ -257,7 +266,12 @@ export class LLMClient {
       messages,
       temperature: this.temperature,
       max_tokens: this.maxTokens,
-      stream: true
+      stream: true,
+      top_p: this.topP,
+      extra_body: {
+        enable_thinking: true,
+        thinking_budget: this.thinkingBudget
+      }
     };
 
     // Make streaming request

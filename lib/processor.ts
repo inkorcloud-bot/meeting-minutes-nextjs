@@ -15,6 +15,7 @@ import { prisma } from './db';
 import { asrClient, ASRClientError } from './asr-client';
 import { llmClient } from './llm-client';
 import { config } from './config';
+import { withLLMSemaphore } from './llm-semaphore';
 import type { ASRJobStatus } from './types';
 
 /**
@@ -300,30 +301,32 @@ export async function processMeeting(meetingId: string): Promise<void> {
         participants: meeting.participants || undefined,
       };
 
-      // Generate summary with progress tracking
+      // Generate summary with progress tracking (using semaphore for concurrency control)
       let progressUpdateCount = 0;
-      summary = await llmClient.generateSummaryWithProgress(
-        transcriptResult.text,
-        summaryOptions,
-        (partial) => {
-          // Update progress periodically (not on every chunk to avoid DB spam)
-          progressUpdateCount++;
-          if (progressUpdateCount % 10 === 0) {
-            const llmProgress = Math.min(
-              PROGRESS.LLM_PROGRESS,
-              PROGRESS.LLM_START + Math.floor((partial.length / 1000) * 5)
-            );
-            updateProgress(
-              meetingId,
-              llmProgress,
-              undefined,
-              `正在生成会议纪要 (${partial.length} 字符)...`
-            ).catch(() => {
-              // Ignore progress update errors
-            });
+      summary = await withLLMSemaphore(async () => {
+        return llmClient.generateSummaryWithProgress(
+          transcriptResult.text,
+          summaryOptions,
+          (partial) => {
+            // Update progress periodically (not on every chunk to avoid DB spam)
+            progressUpdateCount++;
+            if (progressUpdateCount % 10 === 0) {
+              const llmProgress = Math.min(
+                PROGRESS.LLM_PROGRESS,
+                PROGRESS.LLM_START + Math.floor((partial.length / 1000) * 5)
+              );
+              updateProgress(
+                meetingId,
+                llmProgress,
+                undefined,
+                `正在生成会议纪要 (${partial.length} 字符)...`
+              ).catch(() => {
+                // Ignore progress update errors
+              });
+            }
           }
-        }
-      );
+        );
+      });
 
       console.log(`[Processor] Summary generated, length: ${summary.length}`);
     } catch (error) {

@@ -7,6 +7,21 @@ import prisma from '@/lib/db';
 import type { UploadResponse } from '@/lib/types';
 
 /**
+ * ASR_API 支持的所有音频/视频格式
+ * 与 FireRedASR2S 兼容的完整格式列表
+ */
+const ALLOWED_AUDIO_EXTENSIONS = new Set([
+  '3gp', '3g2', '8svx', 'aa', 'aac', 'aax', 'ac3', 'act', 'adp', 'adts',
+  'adx', 'aif', 'aiff', 'amr', 'ape', 'asf', 'ast', 'au', 'avr', 'caf',
+  'cda', 'dff', 'dsf', 'dsm', 'dss', 'dts', 'eac3', 'ec3', 'f32', 'f64',
+  'fap', 'flac', 'flv', 'gsm', 'ircam', 'm2ts', 'm4a', 'm4b', 'm4r',
+  'mka', 'mkv', 'mp2', 'mp3', 'mp4', 'mpc', 'mpp', 'mts', 'nut', 'nsv',
+  'oga', 'ogg', 'oma', 'opus', 'qcp', 'ra', 'ram', 'rm', 'sln', 'smp',
+  'snd', 'sox', 'spx', 'tak', 'tta', 'voc', 'w64', 'wav', 'wave', 'webm',
+  'wma', 'wve', 'wv', 'xa', 'xwma',
+]);
+
+/**
  * POST /api/meetings/upload
  * 上传音频文件并创建会议记录
  *
@@ -53,22 +68,21 @@ export async function POST(request: Request): Promise<NextResponse<UploadRespons
       }, { status: 400 });
     }
 
-    // 验证文件类型
-    const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/x-m4a', 'audio/mp4', 'audio/webm'];
-    if (!allowedTypes.includes(audioFile.type) && !audioFile.name.match(/\.(mp3|wav|m4a|webm)$/i)) {
-      return NextResponse.json({
-        code: 400,
-        message: '不支持的音频格式，支持: MP3, WAV, M4A, WebM',
-      }, { status: 400 });
-    }
-
     // 生成 UUID
     const meetingId = randomUUID();
 
-    // 获取文件扩展名
+    // 获取文件扩展名并验证
     const originalName = audioFile.name;
-    const ext = path.extname(originalName) || '.mp3';
-    const fileName = `${meetingId}${ext}`;
+    const ext = path.extname(originalName).slice(1).toLowerCase();
+
+    if (!ext || !ALLOWED_AUDIO_EXTENSIONS.has(ext)) {
+      return NextResponse.json({
+        code: 400,
+        message: `不支持的文件格式 '${ext || '未知'}'。支持 MP3, WAV, M4A, OGG, FLAC, AAC, OPUS 等 ${ALLOWED_AUDIO_EXTENSIONS.size} 种格式`,
+      }, { status: 400 });
+    }
+
+    const fileName = `${meetingId}.${ext}`;
 
     // 确保 uploads 目录存在
     const uploadsDir = path.join(process.cwd(), 'uploads');

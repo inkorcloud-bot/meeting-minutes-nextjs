@@ -21,6 +21,8 @@ export interface Config {
   llmTemperature: number;
   llmMaxTokens: number;
   llmConcurrency: number;   // Concurrent request limit
+  llmTopP: number;          // Top-p sampling parameter
+  llmThinkingBudget: number; // DeepSeek thinking budget
 
   // File Storage
   uploadDir: string;
@@ -47,6 +49,8 @@ export const config: Config = {
   llmTemperature: 0.4,
   llmMaxTokens: 6000,
   llmConcurrency: 2,
+  llmTopP: 0.85,
+  llmThinkingBudget: 10000,
 
   // File storage configuration
   uploadDir: "./uploads",
