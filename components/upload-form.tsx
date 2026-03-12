@@ -129,20 +129,21 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
     }
 
     // Prepare form data
+    // Note: backend expects 'audio' and 'participants', not 'file' and 'attendees'
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("audio", file);
     formData.append("title", title.trim());
     if (date) {
       formData.append("date", date);
     }
     if (attendees.trim()) {
-      formData.append("attendees", attendees.trim());
+      formData.append("participants", attendees.trim());
     }
 
     setUploadState({ status: "uploading", progress: 0, error: null });
 
     try {
-      const response = await fetch("/api/upload", {
+      const response = await fetch("/api/meetings/upload", {
         method: "POST",
         body: formData,
       });
