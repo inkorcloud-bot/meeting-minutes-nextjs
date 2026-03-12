@@ -5,6 +5,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import prisma from '@/lib/db';
 import { createLogger } from '@/lib/logger';
+import { processMeeting } from '@/lib/processor';
 import type { UploadResponse } from '@/lib/types';
 
 const log = createLogger('api:upload');
@@ -139,6 +140,18 @@ export async function POST(request: Request): Promise<NextResponse<UploadRespons
       title: meeting.title,
       duration: `${duration}ms`
     });
+
+    // 启动后台处理任务（不阻塞响应）
+    // 使用 setTimeout 确保异步执行
+    setTimeout(() => {
+      log.info('启动后台处理任务', { meetingId: meeting.id });
+      processMeeting(meeting.id).catch(error => {
+        log.error('后台处理任务失败', { 
+          meetingId: meeting.id, 
+          error: error instanceof Error ? error.message : String(error)
+        });
+      });
+    }, 100);
 
     // 返回成功响应
     return NextResponse.json({
