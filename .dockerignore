@@ -1,0 +1,47 @@
+# Dependencies
+node_modules
+.pnpm-debug.log
+
+# Build output
+.next
+out
+build
+dist
+
+# Development
+*.log
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Test
+coverage
+.nyc_output
+
+# Misc
+*.md
+!README.md
+uploads/*
+!uploads/.gitkeep
+data/*

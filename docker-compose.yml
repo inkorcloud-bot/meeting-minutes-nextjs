@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  meeting-minutes:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meeting-minutes-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=/app/data/meetings.db
+      - ASR_API_URL=${ASR_API_URL:-http://asr-service:8000/api/v1}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.deepseek.com/v1}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-deepseek-chat}
+      - LLM_CONCURRENCY=${LLM_CONCURRENCY:-2}
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/meetings"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# 如果需要本地 ASR 服务，取消注释以下内容
+#   asr-service:
+#     image: your-asr-image:latest
+#     container_name: asr-service
+#     restart: unless-stopped
+#     ports:
+#       - "8000:8000"
+#     volumes:
+#       - ./asr-models:/app/models
