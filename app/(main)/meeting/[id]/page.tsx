@@ -422,7 +422,7 @@ export default function MeetingDetailPage() {
               <CardContent className="pt-6">
                 {meeting.transcript ? (
                   <div className="prose prose-neutral dark:prose-invert max-w-none">
-                    <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg overflow-x-auto">
+                    <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg overflow-x-auto text-foreground">
                       {meeting.transcript}
                     </pre>
                   </div>
