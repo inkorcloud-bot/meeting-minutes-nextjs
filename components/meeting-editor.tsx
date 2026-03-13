@@ -9,7 +9,7 @@ import { Loader2, Save, FileText, Mic } from "lucide-react"
 interface MeetingEditorProps {
   initialSummary: string
   initialTranscript?: string
-  onSave: (summary: string) => Promise<void>
+  onSave: (summary: string, transcript?: string) => Promise<void>
   isSaving?: boolean
 }
 
@@ -20,22 +20,25 @@ export function MeetingEditor({
   isSaving = false,
 }: MeetingEditorProps) {
   // 状态管理
-  const [content, setContent] = useState(initialSummary)
+  const [summary, setSummary] = useState(initialSummary)
+  const [transcript, setTranscript] = useState(initialTranscript || "")
   const [activeTab, setActiveTab] = useState<"summary" | "transcript">("summary")
 
   // 获取当前编辑内容
-  const currentContent = activeTab === "summary" ? content : (initialTranscript || "")
+  const currentContent = activeTab === "summary" ? summary : transcript
 
   // 内容变更处理
   const handleContentChange = (newContent: string) => {
     if (activeTab === "summary") {
-      setContent(newContent)
+      setSummary(newContent)
+    } else {
+      setTranscript(newContent)
     }
   }
 
   // 保存处理
   const handleSave = async () => {
-    await onSave(content)
+    await onSave(summary, transcript)
   }
 
   return (
@@ -113,7 +116,7 @@ export function MeetingEditor({
           </div>
           <div className="flex-1 overflow-auto p-4">
             <SummaryViewer
-              summary={activeTab === "summary" ? content : (initialTranscript || "")}
+              summary={activeTab === "summary" ? summary : transcript}
             />
           </div>
         </div>

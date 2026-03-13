@@ -195,12 +195,12 @@ export default function MeetingDetailPage() {
   }
 
   // Handle save summary from editor
-  const handleSaveSummary = async (summary: string) => {
+  const handleSaveSummary = async (summary: string, transcript?: string) => {
     try {
       const response = await fetch(`/api/meetings/${meeting?.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ summary })
+        body: JSON.stringify({ summary, transcript })
       })
       
       if (!response.ok) {
@@ -208,8 +208,8 @@ export default function MeetingDetailPage() {
         throw new Error(result.message || "保存失败")
       }
       
-      // Update local state with new summary
-      setMeeting(prev => prev ? { ...prev, summary } : null)
+      // Update local state with new summary and transcript
+      setMeeting(prev => prev ? { ...prev, summary, ...(transcript !== undefined && { transcript }) } : null)
       setIsEditing(false)
       toast.success("纪要保存成功")
     } catch (err) {
