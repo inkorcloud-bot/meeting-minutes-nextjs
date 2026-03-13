@@ -112,7 +112,7 @@ export default function MeetingDetailPage() {
             
             if (result.data.status === "completed") {
               toast.success("会议处理完成")
-            } else if (result.data.status === "failed" || result.data.status === "error") {
+            } else if (result.data.status === "failed") {
               toast.error("会议处理失败")
             }
           }
@@ -309,7 +309,7 @@ export default function MeetingDetailPage() {
         )}
 
         {/* Error message */}
-        {(meeting.status === "failed" || meeting.status === "error") && meeting.error && (
+        {meeting.status === "failed" && meeting.error && (
           <Card className="border-destructive/50 bg-destructive/10">
             <CardContent className="pt-4">
               <div className="flex items-start gap-3">
@@ -501,7 +501,7 @@ export default function MeetingDetailPage() {
       )}
 
       {/* Waiting state for non-completed meetings */}
-      {meeting.status !== "completed" && meeting.status !== "failed" && meeting.status !== "error" && (
+      {meeting.status !== "completed" && meeting.status !== "failed" && (
         <Card>
           <CardContent className="pt-6">
             <div className="text-center py-12">

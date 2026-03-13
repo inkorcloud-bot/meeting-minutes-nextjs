@@ -45,11 +45,6 @@ const statusConfig: Record<
     label: "失败",
     variant: "destructive",
   },
-  // "error" is an alias for "failed"
-  error: {
-    label: "失败",
-    variant: "destructive",
-  },
 };
 
 export function StatusBadge({ status }: StatusBadgeProps) {

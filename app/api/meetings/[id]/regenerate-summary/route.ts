@@ -123,11 +123,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           if (!fullSummary || fullSummary.trim() === '') {
             log.error('LLM 返回空内容', { meetingId: id });
             
-            // Update status to error
+            // Update status to failed
             await prisma.meeting.update({
               where: { id },
               data: {
-                status: 'error',
+                status: 'failed',
                 currentStep: null,
                 progress: 0,
                 error: 'LLM returned empty summary content',
@@ -196,11 +196,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           duration: `${duration}ms`
         });
         
-        // Update status to error in database
+        // Update status to failed in database
         await prisma.meeting.update({
           where: { id },
           data: {
-            status: 'error',
+            status: 'failed',
             currentStep: null,
             progress: 0,
             error: errorMessage,
@@ -218,12 +218,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // Handle client disconnect
       log.warn('客户端断开连接', { meetingId: id });
       
-      // Update status to error on client disconnect
+      // Update status to failed on client disconnect
       try {
         await prisma.meeting.update({
           where: { id },
           data: {
-            status: 'error',
+            status: 'failed',
             currentStep: null,
             progress: 0,
             error: 'Client disconnected during summary regeneration',
