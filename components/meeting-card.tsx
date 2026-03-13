@@ -61,19 +61,23 @@ export function MeetingCard({ meeting, onDelete }: MeetingCardProps) {
           </CardAction>
         </CardHeader>
         <CardContent className="space-y-3">
-          {/* Progress bar for in-progress meetings */}
-          {isInProgress && (
-            <div className="flex items-center gap-3">
-              <Progress value={meeting.progress} className="flex-1">
-                <ProgressTrack className="flex-1">
-                  <ProgressIndicator />
-                </ProgressTrack>
-              </Progress>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {meeting.progress}%
-              </span>
-            </div>
-          )}
+          {/* Progress bar area - always reserve space for consistent card height */}
+          <div className="flex items-center gap-3 h-4">
+            {isInProgress ? (
+              <>
+                <Progress value={meeting.progress} className="flex-1">
+                  <ProgressTrack className="flex-1">
+                    <ProgressIndicator />
+                  </ProgressTrack>
+                </Progress>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {meeting.progress}%
+                </span>
+              </>
+            ) : (
+              <div className="flex-1" /> /* Placeholder to maintain height */
+            )}
+          </div>
 
           {/* Meta info */}
           <div className="flex items-center justify-between text-xs text-muted-foreground">
