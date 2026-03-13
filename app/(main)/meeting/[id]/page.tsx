@@ -12,7 +12,10 @@ import {
   RefreshCw, 
   FileText,
   AlertCircle,
-  Loader2
+  Loader2,
+  Copy,
+  Check,
+  Brain
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -37,6 +40,23 @@ export default function MeetingDetailPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("summary")
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [regeneratingSummary, setRegeneratingSummary] = useState<string>("")
+  const [showThinking, setShowThinking] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  // Extract thinking content from summary
+  const extractThinkingContent = (summary: string): { thinkingContent: string | null; cleanedContent: string } => {
+    let thinkingContent: string | null = null
+    let cleaned = summary
+
+    // Format 1: HTML comment <!-- 思考过程：... -->
+    const htmlCommentMatch = summary.match(/<!--\s*思考过程[：:]\s*([\s\S]*?)-->/)
+    if (htmlCommentMatch) {
+      thinkingContent = htmlCommentMatch[1].trim()
+      cleaned = summary.replace(/<!--\s*思考过程[：:][\s\S]*?-->\s*/g, "")
+    }
+
+    return { thinkingContent, cleanedContent: cleaned.trim() }
+  }
 
   // Check if meeting is in a processing state
   const isProcessing = (status: string): boolean => {
@@ -364,24 +384,66 @@ export default function MeetingDetailPage() {
             </div>
 
             {viewMode === "summary" && meeting.transcript && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRegenerateSummary}
-                disabled={isRegenerating}
-              >
-                {isRegenerating ? (
-                  <>
-                    <Loader2 className="size-4 mr-2 animate-spin" />
-                    生成中...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="size-4 mr-2" />
-                    重新生成
-                  </>
+              <div className="flex items-center gap-2">
+                {/* Thinking toggle button */}
+                {displaySummary && extractThinkingContent(displaySummary).thinkingContent && (
+                  <Button
+                    variant={showThinking ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setShowThinking(!showThinking)}
+                  >
+                    <Brain className="size-4 mr-2" />
+                    {showThinking ? "隐藏思考" : "思考过程"}
+                  </Button>
                 )}
-              </Button>
+                
+                {/* Copy button */}
+                {displaySummary && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      const { cleanedContent } = extractThinkingContent(displaySummary)
+                      await navigator.clipboard.writeText(cleanedContent)
+                      setCopied(true)
+                      toast.success("已复制到剪贴板")
+                      setTimeout(() => setCopied(false), 2000)
+                    }}
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="size-4 mr-2 text-green-500" />
+                        已复制
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="size-4 mr-2" />
+                        复制
+                      </>
+                    )}
+                  </Button>
+                )}
+                
+                {/* Regenerate button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRegenerateSummary}
+                  disabled={isRegenerating}
+                >
+                  {isRegenerating ? (
+                    <>
+                      <Loader2 className="size-4 mr-2 animate-spin" />
+                      生成中...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="size-4 mr-2" />
+                      重新生成
+                    </>
+                  )}
+                </Button>
+              </div>
             )}
           </div>
 
@@ -394,7 +456,7 @@ export default function MeetingDetailPage() {
                 {showSummary ? (
                   <SummaryViewer 
                     summary={displaySummary || ""} 
-                    onCopy={() => toast.success("已复制到剪贴板")}
+                    showThinking={showThinking}
                   />
                 ) : isRegenerating ? (
                   <div className="flex items-center justify-center py-12">
