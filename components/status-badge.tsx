@@ -12,7 +12,11 @@ const statusConfig: Record<
     variant: "default" | "secondary" | "destructive" | "outline";
     className?: string;
   }
-> = {
+> & Record<string, {
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline";
+    className?: string;
+  }> = {
   uploaded: {
     label: "已上传",
     variant: "secondary",
@@ -38,6 +42,11 @@ const statusConfig: Record<
     className: "bg-green-500 text-white hover:bg-green-600",
   },
   failed: {
+    label: "失败",
+    variant: "destructive",
+  },
+  // "error" is an alias for "failed"
+  error: {
     label: "失败",
     variant: "destructive",
   },
