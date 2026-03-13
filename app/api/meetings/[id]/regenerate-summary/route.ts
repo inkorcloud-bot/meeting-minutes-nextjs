@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/db';
-import { llmClient } from '@/lib/llm-client';
+import { llmClient, extractThinking } from '@/lib/llm-client';
 import { getLLMSemaphore } from '@/lib/llm-semaphore';
 import { createLogger } from '@/lib/logger';
 
@@ -142,9 +142,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           }
 
           const duration = Date.now() - startTime;
-          log.info('摘要生成完成', { 
-            meetingId: id, 
-            summaryLength: fullSummary.length,
+
+          // Extract thinking process from full summary
+          const { thinking, content: cleanSummary } = extractThinking(fullSummary);
+
+          // Build final summary with thinking process as HTML comment (for debugging/audit)
+          let finalSummary = cleanSummary;
+          if (thinking) {
+            finalSummary = `<!-- 思考过程：\n${thinking.replace(/-->/g, '—>')}\n-->\n\n${cleanSummary}`;
+          }
+
+          log.info('摘要生成完成', {
+            meetingId: id,
+            summaryLength: cleanSummary.length,
+            hasThinking: !!thinking,
+            thinkingLength: thinking?.length || 0,
             duration: `${duration}ms`
           });
 
@@ -152,7 +164,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           await prisma.meeting.update({
             where: { id },
             data: {
-              summary: fullSummary,
+              summary: finalSummary,
               status: 'completed',
               currentStep: null,
               progress: 100,
@@ -161,8 +173,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             }
           });
 
-          // Send completion message
-          const completionData = `data: ${JSON.stringify({ done: true, summary: fullSummary })}\n\n`;
+          // Send completion message (with clean summary, no thinking process)
+          const completionData = `data: ${JSON.stringify({ done: true, summary: cleanSummary })}\n\n`;
           controller.enqueue(encoder.encode(completionData));
           controller.close();
         } finally {

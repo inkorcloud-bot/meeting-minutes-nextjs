@@ -303,6 +303,7 @@ export async function processMeeting(meetingId: string): Promise<void> {
     // Step 6: Generate summary with LLM (70%-90%)
     // ========================================
     let summary: string;
+    let thinkingProcess: string | undefined;
 
     try {
       await updateProgress(
@@ -321,7 +322,7 @@ export async function processMeeting(meetingId: string): Promise<void> {
 
       // Generate summary with progress tracking (using semaphore for concurrency control)
       let progressUpdateCount = 0;
-      summary = await withLLMSemaphore(async () => {
+      const result = await withLLMSemaphore(async () => {
         return llmClient.generateSummaryWithProgress(
           transcriptResult.text,
           summaryOptions,
@@ -346,7 +347,15 @@ export async function processMeeting(meetingId: string): Promise<void> {
         );
       });
 
-      log.info('摘要生成完成', { meetingId, summaryLength: summary.length });
+      summary = result.summary;
+      thinkingProcess = result.thinking;
+
+      log.info('摘要生成完成', {
+        meetingId,
+        summaryLength: summary.length,
+        hasThinking: !!thinkingProcess,
+        thinkingLength: thinkingProcess?.length || 0
+      });
     } catch (error) {
       const message = error instanceof Error
         ? `生成纪要失败: ${error.message}`
@@ -359,10 +368,16 @@ export async function processMeeting(meetingId: string): Promise<void> {
     // Step 7: Save summary and mark completed (100%)
     // ========================================
     try {
+      // Build final summary with thinking process as HTML comment (for debugging/audit)
+      let finalSummary = summary;
+      if (thinkingProcess) {
+        finalSummary = `<!-- 思考过程：\n${thinkingProcess.replace(/-->/g, '—>')}\n-->\n\n${summary}`;
+      }
+
       await prisma.meeting.update({
         where: { id: meetingId },
         data: {
-          summary,
+          summary: finalSummary,
           status: STATUS.COMPLETED,
           progress: PROGRESS.COMPLETED,
           currentStep: '处理完成',

@@ -19,6 +19,18 @@ export interface SummaryOptions {
   participants?: string;
   /** Additional instructions */
   additionalInstructions?: string;
+  /** Whether to include thinking process in output */
+  includeThinking?: boolean;
+}
+
+/**
+ * Result of summary generation with thinking process
+ */
+export interface SummaryResult {
+  /** Generated summary content (without thinking process) */
+  summary: string;
+  /** Thinking process extracted from model output */
+  thinking?: string;
 }
 
 /**
@@ -61,6 +73,37 @@ interface StreamChunk {
     };
     finish_reason: string | null;
   }[];
+}
+
+/**
+ * Extract thinking process from model output
+ * Supports two formats:
+ * 1. <think>...</think> tags (e.g., Qwen)
+ * 2. Content before  </think> (e.g., DeepSeek R1 style)
+ *
+ * @param content - Raw model output
+ * @returns Object with separated thinking and content
+ */
+export function extractThinking(content: string): { thinking: string | undefined; content: string } {
+  // Format 1: <think>...</think> tags (Qwen style)
+  const thinkTagMatch = content.match(/<think>([\s\S]*?)<\/think>/);
+  if (thinkTagMatch) {
+    const thinking = thinkTagMatch[1].trim();
+    // Remove the think tag from content
+    const cleanContent = content.replace(/<think>[\s\S]*?<\/think>/, '').trim();
+    return { thinking, content: cleanContent };
+  }
+
+  // Format 2: Content before  </think> (DeepSeek R1 style)
+  const separatorIndex = content.indexOf(' </think>');
+  if (separatorIndex !== -1) {
+    const thinking = content.substring(0, separatorIndex).trim();
+    const cleanContent = content.substring(separatorIndex + 3).trim();
+    return { thinking, content: cleanContent };
+  }
+
+  // No thinking process detected
+  return { thinking: undefined, content };
 }
 
 /**
@@ -318,47 +361,59 @@ export class LLMClient {
 
   /**
    * Generate complete summary (non-streaming)
-   * Collects all chunks and returns the complete result
-   * 
+   * Collects all chunks and returns the complete result with optional thinking process
+   *
    * @param transcript - Meeting transcript text
    * @param options - Summary generation options
-   * @returns Complete summary text
+   * @returns Complete summary result with thinking process
    */
   async generateSummary(
     transcript: string,
     options: SummaryOptions = {}
-  ): Promise<string> {
+  ): Promise<SummaryResult> {
     const chunks: string[] = [];
-    
+
     for await (const chunk of this.generateSummaryStream(transcript, options)) {
       chunks.push(chunk);
     }
-    
-    return chunks.join('');
+
+    const rawContent = chunks.join('');
+    const { thinking, content } = extractThinking(rawContent);
+
+    return {
+      summary: content,
+      thinking
+    };
   }
 
   /**
    * Generate summary with progress callback
    * Useful for tracking generation progress
-   * 
+   *
    * @param transcript - Meeting transcript text
    * @param options - Summary generation options
-   * @param onProgress - Progress callback function
-   * @returns Complete summary text
+   * @param onProgress - Progress callback function (receives raw partial content)
+   * @returns Complete summary result with thinking process
    */
   async generateSummaryWithProgress(
     transcript: string,
     options: SummaryOptions,
     onProgress: (partial: string) => void
-  ): Promise<string> {
+  ): Promise<SummaryResult> {
     const chunks: string[] = [];
-    
+
     for await (const chunk of this.generateSummaryStream(transcript, options)) {
       chunks.push(chunk);
       onProgress(chunks.join(''));
     }
-    
-    return chunks.join('');
+
+    const rawContent = chunks.join('');
+    const { thinking, content } = extractThinking(rawContent);
+
+    return {
+      summary: content,
+      thinking
+    };
   }
 }
 
