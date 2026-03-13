@@ -499,13 +499,13 @@ export default function MeetingDetailPage() {
                   <div className="space-y-6">
                     {/* Thinking content section */}
                     {showThinking && meeting.thinkingContent && (
-                      <div className="bg-muted/50 rounded-lg p-4 border">
-                        <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                          <Brain className="size-4" />
+                      <div className="bg-muted/30 rounded-lg p-4 border border-border">
+                        <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+                          <Brain className="size-4 text-primary" />
                           思考过程
                         </h3>
-                        <div className="prose prose-sm dark:prose-invert max-w-none">
-                          <pre className="whitespace-pre-wrap text-sm bg-background p-3 rounded border">
+                        <div className="bg-background rounded-lg p-4 border border-border">
+                          <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
                             {meeting.thinkingContent}
                           </pre>
                         </div>
