@@ -94,11 +94,11 @@ export function extractThinking(content: string): { thinking: string | undefined
     return { thinking, content: cleanContent };
   }
 
-  // Format 2: Content before  </think> (DeepSeek R1 style)
-  const separatorIndex = content.indexOf(' </think>');
-  if (separatorIndex !== -1) {
-    const thinking = content.substring(0, separatorIndex).trim();
-    const cleanContent = content.substring(separatorIndex + 3).trim();
+  // Format 2: Content before </think> (DeepSeek R1 style - only closing tag, no opening tag)
+  const closeTagIndex = content.indexOf('</think>');
+  if (closeTagIndex !== -1) {
+    const thinking = content.substring(0, closeTagIndex).trim();
+    const cleanContent = content.substring(closeTagIndex + '</think>'.length).trim();
     return { thinking, content: cleanContent };
   }
 

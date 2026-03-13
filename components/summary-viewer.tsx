@@ -32,9 +32,16 @@ export function SummaryViewer({ summary, onCopy, className }: SummaryViewerProps
     }
   }, [summary, onCopy])
 
-  // Convert markdown to HTML using marked
+  // Convert markdown to HTML using marked, stripping any model thinking process
   const htmlContent = useMemo(() => {
-    return marked.parse(summary) as string
+    // Strip <think>...</think> (format 1: Qwen style)
+    let cleaned = summary.replace(/<think>[\s\S]*?<\/think>/g, "")
+    // Strip content before </think> (format 2: DeepSeek R1 style - only closing tag)
+    const closeIdx = cleaned.indexOf("</think>")
+    if (closeIdx !== -1) {
+      cleaned = cleaned.substring(closeIdx + "</think>".length)
+    }
+    return marked.parse(cleaned.trim()) as string
   }, [summary])
 
   return (

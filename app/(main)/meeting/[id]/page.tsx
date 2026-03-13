@@ -151,7 +151,16 @@ export default function MeetingDetailPage() {
 
               if (data.chunk) {
                 fullSummary += data.chunk
-                setRegeneratingSummary(fullSummary)
+                // Strip thinking process from streaming display
+                const closeIdx = fullSummary.indexOf("</think>")
+                if (closeIdx !== -1) {
+                  // Thinking complete: show only content after </think>
+                  setRegeneratingSummary(fullSummary.substring(closeIdx + "</think>".length).trim())
+                } else if (!fullSummary.includes("<think>")) {
+                  // No thinking tags detected, show content as-is
+                  setRegeneratingSummary(fullSummary)
+                }
+                // If in thinking phase (<think> found but no </think>), keep empty → shows spinner
               }
 
               if (data.done) {
