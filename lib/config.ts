@@ -45,7 +45,7 @@ export const config: Config = {
   // LLM service configuration
   llmBaseUrl: process.env.LLM_BASE_URL || "https://api.deepseek.com/v1",
   llmApiKey: process.env.LLM_API_KEY || "",
-  llmModel: "deepseek-chat",
+  llmModel: process.env.LLM_MODEL || "deepseek-chat",
   llmTemperature: 0.4,
   llmMaxTokens: 6000,
   llmConcurrency: 2,
