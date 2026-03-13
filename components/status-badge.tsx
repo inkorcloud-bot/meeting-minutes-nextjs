@@ -44,7 +44,10 @@ const statusConfig: Record<
 };
 
 export function StatusBadge({ status }: StatusBadgeProps) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] || {
+    label: status,
+    variant: "secondary" as const,
+  };
 
   return (
     <Badge variant={config.variant} className={config.className}>
