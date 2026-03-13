@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react"
 import { marked } from "marked"
-import { Copy, Check, Brain, FileText } from "lucide-react"
+import { Copy, Check, Brain } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -20,9 +20,10 @@ interface SummaryViewerProps {
 
 /**
  * Extract thinking content and cleaned content from summary
- * Supports two formats:
- * 1. <think>...</think> (Qwen style)
- * 2. content before </think> (DeepSeek R1 style - only closing tag)
+ * Supports three formats:
+ * 1. HTML comment: <!-- 思考过程：... -->
+ * 2. <think>...</think> tags (Qwen style)
+ * 3. content before </think> (DeepSeek R1 style - only closing tag)
  */
 function extractThinkingContent(summary: string): {
   thinkingContent: string | null
@@ -31,20 +32,30 @@ function extractThinkingContent(summary: string): {
   let thinkingContent: string | null = null
   let cleaned = summary
 
-  // Try to extract <think>...</think> (format 1: Qwen style)
-  const thinkMatch = summary.match(/<think>([\s\S]*?)<\/think>/)
-  if (thinkMatch) {
-    thinkingContent = thinkMatch[1].trim()
-    cleaned = summary.replace(/<think>[\s\S]*?<\/think>/g, "")
+  // Format 1: HTML comment <!-- 思考过程：... -->
+  const htmlCommentMatch = summary.match(/<!--\s*思考过程[：:]\s*([\s\S]*?)-->/)
+  if (htmlCommentMatch) {
+    thinkingContent = htmlCommentMatch[1].trim()
+    cleaned = summary.replace(/<!--\s*思考过程[：:][\s\S]*?-->\s*/g, "")
   }
 
-  // Try to find content before </think> (format 2: DeepSeek R1 style)
-  const closeIdx = cleaned.indexOf("</think>")
-  if (closeIdx !== -1) {
-    // Everything before </think> is thinking content
-    const beforeThink = cleaned.substring(0, closeIdx)
-    thinkingContent = beforeThink.trim()
-    cleaned = cleaned.substring(closeIdx + "</think>".length)
+  // Format 2: <think>...</think> (Qwen style)
+  if (!thinkingContent) {
+    const thinkMatch = summary.match(/<think>([\s\S]*?)<\/think>/)
+    if (thinkMatch) {
+      thinkingContent = thinkMatch[1].trim()
+      cleaned = summary.replace(/<think>[\s\S]*?<\/think>/g, "")
+    }
+  }
+
+  // Format 3: content before </think> (DeepSeek R1 style)
+  if (!thinkingContent) {
+    const closeIdx = summary.indexOf("</think>")
+    if (closeIdx !== -1) {
+      const beforeThink = summary.substring(0, closeIdx)
+      thinkingContent = beforeThink.trim()
+      cleaned = summary.substring(closeIdx + "</think>".length)
+    }
   }
 
   return {
