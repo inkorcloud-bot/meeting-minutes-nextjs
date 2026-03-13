@@ -18,6 +18,7 @@ import { config } from './config';
 import { withLLMSemaphore } from './llm-semaphore';
 import { createLogger } from './logger';
 import type { ASRJobStatus } from './types';
+import path from 'path';
 
 const log = createLogger('processor');
 
@@ -139,6 +140,12 @@ export async function processMeeting(meetingId: string): Promise<void> {
       throw new Error('Meeting has no audio file');
     }
 
+    // 构建完整文件路径（支持相对路径和绝对路径）
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const audioFilePath = path.isAbsolute(meeting.audioPath)
+      ? meeting.audioPath
+      : path.join(uploadsDir, meeting.audioPath);
+
     // Check if already processed or processing
     if (meeting.status === STATUS.COMPLETED) {
       log.info('会议已完成，跳过处理', { meetingId });
@@ -169,8 +176,8 @@ export async function processMeeting(meetingId: string): Promise<void> {
     let asrJobId: string;
 
     try {
-      asrJobId = await asrClient.submitJob(meeting.audioPath);
-      log.info('ASR 任务已提交', { meetingId, asrJobId });
+      asrJobId = await asrClient.submitJob(audioFilePath);
+      log.info('ASR 任务已提交', { meetingId, asrJobId, audioFilePath });
 
       // Store ASR job ID for reference
       await prisma.meeting.update({
