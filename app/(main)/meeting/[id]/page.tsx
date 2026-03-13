@@ -439,10 +439,26 @@ export default function MeetingDetailPage() {
                     variant="outline"
                     size="sm"
                     onClick={async () => {
-                      await navigator.clipboard.writeText(displaySummary)
-                      setCopied(true)
-                      toast.success("已复制到剪贴板")
-                      setTimeout(() => setCopied(false), 2000)
+                      try {
+                        if (navigator.clipboard?.writeText) {
+                          await navigator.clipboard.writeText(displaySummary)
+                        } else {
+                          // Fallback for non-HTTPS environments
+                          const textarea = document.createElement('textarea')
+                          textarea.value = displaySummary
+                          textarea.style.position = 'fixed'
+                          textarea.style.opacity = '0'
+                          document.body.appendChild(textarea)
+                          textarea.select()
+                          document.execCommand('copy')
+                          document.body.removeChild(textarea)
+                        }
+                        setCopied(true)
+                        toast.success("已复制到剪贴板")
+                        setTimeout(() => setCopied(false), 2000)
+                      } catch {
+                        toast.error("复制失败")
+                      }
                     }}
                   >
                     {copied ? (
