@@ -15,7 +15,9 @@ import {
   Loader2,
   Copy,
   Check,
-  Brain
+  Brain,
+  Edit,
+  X
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -24,6 +26,7 @@ import { Separator } from "@/components/ui/separator"
 import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress"
 import { StatusBadge } from "@/components/status-badge"
 import { SummaryViewer } from "@/components/summary-viewer"
+import { SummaryEditor } from "@/components/summary-editor"
 import type { MeetingResponseData, MeetingStatus } from "@/lib/types"
 
 type ViewMode = "summary" | "transcript"
@@ -42,6 +45,7 @@ export default function MeetingDetailPage() {
   const [regeneratingSummary, setRegeneratingSummary] = useState<string>("")
   const [showThinking, setShowThinking] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
 
   // Extract thinking content from summary
   const extractThinkingContent = (summary: string): { thinkingContent: string | null; cleanedContent: string } => {
@@ -202,6 +206,29 @@ export default function MeetingDetailPage() {
     } finally {
       setIsRegenerating(false)
       setRegeneratingSummary("")
+    }
+  }
+
+  // Handle save summary from editor
+  const handleSaveSummary = async (summary: string) => {
+    try {
+      const response = await fetch(`/api/meetings/${meeting?.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ summary })
+      })
+      
+      if (!response.ok) {
+        const result = await response.json()
+        throw new Error(result.message || "保存失败")
+      }
+      
+      // Update local state with new summary
+      setMeeting(prev => prev ? { ...prev, summary } : null)
+      setIsEditing(false)
+      toast.success("纪要保存成功")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "保存失败")
     }
   }
 
@@ -385,6 +412,30 @@ export default function MeetingDetailPage() {
 
             {viewMode === "summary" && meeting.transcript && (
               <div className="flex items-center gap-2">
+                {/* Edit button */}
+                {displaySummary && !isEditing && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Edit className="size-4 mr-2" />
+                    编辑
+                  </Button>
+                )}
+                
+                {/* Cancel edit button */}
+                {isEditing && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(false)}
+                  >
+                    <X className="size-4 mr-2" />
+                    取消
+                  </Button>
+                )}
+                
                 {/* Thinking toggle button */}
                 {displaySummary && extractThinkingContent(displaySummary).thinkingContent && (
                   <Button
@@ -453,7 +504,13 @@ export default function MeetingDetailPage() {
           {viewMode === "summary" && (
             <Card>
               <CardContent className="pt-6">
-                {showSummary ? (
+                {isEditing ? (
+                  <SummaryEditor
+                    summary={displaySummary || ""}
+                    onSave={handleSaveSummary}
+                    onCancel={() => setIsEditing(false)}
+                  />
+                ) : showSummary ? (
                   <SummaryViewer 
                     summary={displaySummary || ""} 
                     showThinking={showThinking}

@@ -85,6 +85,122 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 /**
+ * PUT /api/meetings/[id]
+ * 更新会议的 summary 和/或 transcript 字段
+ */
+export async function PUT(request: NextRequest, { params }: RouteParams) {
+  const startTime = Date.now();
+
+  try {
+    const { id } = await params;
+
+    log.debug('更新会议请求', { meetingId: id });
+
+    // 解析请求体
+    let body: { summary?: string; transcript?: string };
+    try {
+      body = await request.json();
+    } catch {
+      log.warn('请求体解析失败', { meetingId: id });
+      return NextResponse.json(
+        {
+          code: 400,
+          message: '请求体格式错误',
+        },
+        { status: 400 }
+      );
+    }
+
+    const { summary, transcript } = body;
+
+    // 至少需要更新一个字段
+    if (summary === undefined && transcript === undefined) {
+      log.warn('无更新字段', { meetingId: id });
+      return NextResponse.json(
+        {
+          code: 400,
+          message: '请提供 summary 或 transcript 字段',
+        },
+        { status: 400 }
+      );
+    }
+
+    // 检查会议是否存在
+    const existingMeeting = await prisma.meeting.findUnique({
+      where: { id },
+    });
+
+    if (!existingMeeting) {
+      log.warn('更新失败: 会议不存在', { meetingId: id });
+      return NextResponse.json(
+        {
+          code: 404,
+          message: '会议不存在',
+        },
+        { status: 404 }
+      );
+    }
+
+    // 构建更新数据
+    const updateData: { summary?: string; transcript?: string } = {};
+    if (summary !== undefined) {
+      updateData.summary = summary;
+    }
+    if (transcript !== undefined) {
+      updateData.transcript = transcript;
+    }
+
+    // 执行更新
+    const updatedMeeting = await prisma.meeting.update({
+      where: { id },
+      data: updateData,
+    });
+
+    const response: MeetingResponse = {
+      code: 0,
+      message: '更新成功',
+      data: {
+        id: updatedMeeting.id,
+        title: updatedMeeting.title,
+        status: updatedMeeting.status,
+        audio_path: updatedMeeting.audioPath ?? undefined,
+        audio_duration: updatedMeeting.audioDuration ?? undefined,
+        transcript: updatedMeeting.transcript ?? undefined,
+        summary: updatedMeeting.summary ?? undefined,
+        progress: updatedMeeting.progress,
+        current_step: updatedMeeting.currentStep ?? undefined,
+        error: updatedMeeting.error ?? undefined,
+        created_at: updatedMeeting.createdAt.toISOString(),
+        updated_at: updatedMeeting.updatedAt.toISOString(),
+      },
+    };
+
+    const duration = Date.now() - startTime;
+    log.info('会议更新成功', {
+      meetingId: id,
+      updatedFields: Object.keys(updateData),
+      duration: `${duration}ms`
+    });
+
+    return NextResponse.json(response);
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    log.error('更新会议失败', {
+      error: error instanceof Error ? error.message : String(error),
+      duration: `${duration}ms`
+    });
+
+    return NextResponse.json(
+      {
+        code: 500,
+        message: '服务器内部错误',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * DELETE /api/meetings/[id]
  * 删除会议记录和关联音频文件
  */
