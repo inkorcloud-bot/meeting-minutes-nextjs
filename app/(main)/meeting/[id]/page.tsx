@@ -350,7 +350,6 @@ export default function MeetingDetailPage() {
             <div className="flex items-center gap-2">
               <Button
                 variant={viewMode === "summary" ? "secondary" : "ghost"}
-                size="sm"
                 onClick={() => setViewMode("summary")}
               >
                 <FileText className="size-4 mr-2" />
@@ -358,7 +357,6 @@ export default function MeetingDetailPage() {
               </Button>
               <Button
                 variant={viewMode === "transcript" ? "secondary" : "ghost"}
-                size="sm"
                 onClick={() => setViewMode("transcript")}
               >
                 原始转录
