@@ -52,8 +52,8 @@ export function MeetingCard({ meeting, onDelete }: MeetingCardProps) {
     meetingStatus === "summarizing"
 
   return (
-    <Link href={`/meeting/${meeting.id}`}>
-      <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+    <Card className="cursor-pointer transition-colors hover:bg-muted/50 relative">
+      <Link href={`/meeting/${meeting.id}`} className="block">
         <CardHeader>
           <CardTitle className="line-clamp-1">{meeting.title}</CardTitle>
           <CardAction>
@@ -75,7 +75,7 @@ export function MeetingCard({ meeting, onDelete }: MeetingCardProps) {
                 </span>
               </>
             ) : (
-              <div className="flex-1" /> /* Placeholder to maintain height */
+              <div className="flex-1" />
             )}
           </div>
 
@@ -84,15 +84,17 @@ export function MeetingCard({ meeting, onDelete }: MeetingCardProps) {
             <span>{formatDate(meeting.created_at)}</span>
           </div>
         </CardContent>
+      </Link>
 
-        {/* Delete button with confirmation dialog */}
+      {/* Delete button - positioned relative to Card */}
+      <div className="absolute bottom-3 right-3 z-10">
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <DialogTrigger
             render={
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="absolute bottom-3 right-3 text-muted-foreground hover:text-destructive"
+                className="text-muted-foreground hover:text-destructive"
                 onClick={(e: React.MouseEvent) => {
                   e.preventDefault()
                   e.stopPropagation()
@@ -127,7 +129,7 @@ export function MeetingCard({ meeting, onDelete }: MeetingCardProps) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </Card>
-    </Link>
+      </div>
+    </Card>
   )
 }
