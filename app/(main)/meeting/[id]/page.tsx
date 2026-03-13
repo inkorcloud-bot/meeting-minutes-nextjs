@@ -26,7 +26,7 @@ import { Separator } from "@/components/ui/separator"
 import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress"
 import { StatusBadge } from "@/components/status-badge"
 import { SummaryViewer } from "@/components/summary-viewer"
-import { SummaryEditor } from "@/components/summary-editor"
+import { MeetingEditor } from "@/components/meeting-editor"
 import type { MeetingResponseData, MeetingStatus } from "@/lib/types"
 
 type ViewMode = "summary" | "transcript"
@@ -46,21 +46,6 @@ export default function MeetingDetailPage() {
   const [showThinking, setShowThinking] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-
-  // Extract thinking content from summary
-  const extractThinkingContent = (summary: string): { thinkingContent: string | null; cleanedContent: string } => {
-    let thinkingContent: string | null = null
-    let cleaned = summary
-
-    // Format 1: HTML comment <!-- 思考过程：... -->
-    const htmlCommentMatch = summary.match(/<!--\s*思考过程[：:]\s*([\s\S]*?)-->/)
-    if (htmlCommentMatch) {
-      thinkingContent = htmlCommentMatch[1].trim()
-      cleaned = summary.replace(/<!--\s*思考过程[：:][\s\S]*?-->\s*/g, "")
-    }
-
-    return { thinkingContent, cleanedContent: cleaned.trim() }
-  }
 
   // Check if meeting is in a processing state
   const isProcessing = (status: string): boolean => {
@@ -437,7 +422,7 @@ export default function MeetingDetailPage() {
                 )}
                 
                 {/* Thinking toggle button */}
-                {displaySummary && extractThinkingContent(displaySummary).thinkingContent && (
+                {meeting.thinkingContent && (
                   <Button
                     variant={showThinking ? "secondary" : "outline"}
                     size="sm"
@@ -454,8 +439,7 @@ export default function MeetingDetailPage() {
                     variant="outline"
                     size="sm"
                     onClick={async () => {
-                      const { cleanedContent } = extractThinkingContent(displaySummary)
-                      await navigator.clipboard.writeText(cleanedContent)
+                      await navigator.clipboard.writeText(displaySummary)
                       setCopied(true)
                       toast.success("已复制到剪贴板")
                       setTimeout(() => setCopied(false), 2000)
@@ -505,16 +489,31 @@ export default function MeetingDetailPage() {
             <Card>
               <CardContent className="pt-6">
                 {isEditing ? (
-                  <SummaryEditor
-                    summary={displaySummary || ""}
+                  <MeetingEditor
+                    initialSummary={displaySummary || ""}
+                    initialTranscript={meeting.transcript}
                     onSave={handleSaveSummary}
-                    onCancel={() => setIsEditing(false)}
+                    isSaving={false}
                   />
                 ) : showSummary ? (
-                  <SummaryViewer 
-                    summary={displaySummary || ""} 
-                    showThinking={showThinking}
-                  />
+                  <div className="space-y-6">
+                    {/* Thinking content section */}
+                    {showThinking && meeting.thinkingContent && (
+                      <div className="bg-muted/50 rounded-lg p-4 border">
+                        <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                          <Brain className="size-4" />
+                          思考过程
+                        </h3>
+                        <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <pre className="whitespace-pre-wrap text-sm bg-background p-3 rounded border">
+                            {meeting.thinkingContent}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                    {/* Summary content */}
+                    <SummaryViewer summary={displaySummary || ""} />
+                  </div>
                 ) : isRegenerating ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="size-8 animate-spin text-muted-foreground" />

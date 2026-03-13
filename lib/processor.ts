@@ -368,16 +368,11 @@ export async function processMeeting(meetingId: string): Promise<void> {
     // Step 7: Save summary and mark completed (100%)
     // ========================================
     try {
-      // Build final summary with thinking process as HTML comment (for debugging/audit)
-      let finalSummary = summary;
-      if (thinkingProcess) {
-        finalSummary = `<!-- 思考过程：\n${thinkingProcess.replace(/-->/g, '—>')}\n-->\n\n${summary}`;
-      }
-
       await prisma.meeting.update({
         where: { id: meetingId },
         data: {
-          summary: finalSummary,
+          summary: summary,
+          thinkingContent: thinkingProcess ?? null,
           status: STATUS.COMPLETED,
           progress: PROGRESS.COMPLETED,
           currentStep: '处理完成',

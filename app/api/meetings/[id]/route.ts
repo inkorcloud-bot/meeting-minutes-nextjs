@@ -13,6 +13,32 @@ interface RouteParams {
 }
 
 /**
+ * 从 summary 中提取思考过程和纯文本摘要
+ * 格式: <!-- 思考过程：... -->\n\n实际摘要内容
+ */
+function extractThinkingAndSummary(summary: string | null): {
+  thinkingContent: string | null;
+  cleanSummary: string | null;
+} {
+  if (!summary) {
+    return { thinkingContent: null, cleanSummary: null };
+  }
+
+  // 匹配 <!-- 思考过程：... --> 格式
+  const thinkingMatch = summary.match(/^<!--\s*思考过程[：:]\s*([\s\S]*?)\s*-->\s*\n\n?([\s\S]*)$/);
+
+  if (thinkingMatch) {
+    return {
+      thinkingContent: thinkingMatch[1].trim(),
+      cleanSummary: thinkingMatch[2].trim() || null,
+    };
+  }
+
+  // 没有思考过程标记，返回原始内容
+  return { thinkingContent: null, cleanSummary: summary };
+}
+
+/**
  * GET /api/meetings/[id]
  * 获取单个会议完整信息
  */
@@ -39,6 +65,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // 提取思考过程和纯摘要
+    const { thinkingContent, cleanSummary } = extractThinkingAndSummary(meeting.summary);
+
     const response: MeetingResponse = {
       code: 0,
       message: 'success',
@@ -49,7 +78,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         audio_path: meeting.audioPath ?? undefined,
         audio_duration: meeting.audioDuration ?? undefined,
         transcript: meeting.transcript ?? undefined,
-        summary: meeting.summary ?? undefined,
+        summary: cleanSummary ?? undefined,
+        thinkingContent: (meeting.thinkingContent ?? thinkingContent) ?? undefined,
         progress: meeting.progress,
         current_step: meeting.currentStep ?? undefined,
         error: meeting.error ?? undefined,
@@ -63,6 +93,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       meetingId: id, 
       title: meeting.title,
       status: meeting.status,
+      hasThinking: !!(meeting.thinkingContent ?? thinkingContent),
       duration: `${duration}ms`
     });
 
@@ -86,7 +117,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /**
  * PUT /api/meetings/[id]
- * 更新会议的 summary 和/或 transcript 字段
+ * 更新会议的 summary、transcript 和/或 thinkingContent 字段
  */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   const startTime = Date.now();
@@ -97,7 +128,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     log.debug('更新会议请求', { meetingId: id });
 
     // 解析请求体
-    let body: { summary?: string; transcript?: string };
+    let body: { summary?: string; transcript?: string; thinkingContent?: string };
     try {
       body = await request.json();
     } catch {
@@ -111,15 +142,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { summary, transcript } = body;
+    const { summary, transcript, thinkingContent } = body;
 
     // 至少需要更新一个字段
-    if (summary === undefined && transcript === undefined) {
+    if (summary === undefined && transcript === undefined && thinkingContent === undefined) {
       log.warn('无更新字段', { meetingId: id });
       return NextResponse.json(
         {
           code: 400,
-          message: '请提供 summary 或 transcript 字段',
+          message: '请提供 summary、transcript 或 thinkingContent 字段',
         },
         { status: 400 }
       );
@@ -142,12 +173,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     // 构建更新数据
-    const updateData: { summary?: string; transcript?: string } = {};
+    const updateData: { summary?: string; transcript?: string; thinkingContent?: string } = {};
     if (summary !== undefined) {
       updateData.summary = summary;
     }
     if (transcript !== undefined) {
       updateData.transcript = transcript;
+    }
+    if (thinkingContent !== undefined) {
+      updateData.thinkingContent = thinkingContent;
     }
 
     // 执行更新
@@ -155,6 +189,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       where: { id },
       data: updateData,
     });
+
+    // 提取思考过程和纯摘要用于响应
+    const { thinkingContent: extractedThinking, cleanSummary } = extractThinkingAndSummary(updatedMeeting.summary);
 
     const response: MeetingResponse = {
       code: 0,
@@ -166,7 +203,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         audio_path: updatedMeeting.audioPath ?? undefined,
         audio_duration: updatedMeeting.audioDuration ?? undefined,
         transcript: updatedMeeting.transcript ?? undefined,
-        summary: updatedMeeting.summary ?? undefined,
+        summary: cleanSummary ?? undefined,
+        thinkingContent: (updatedMeeting.thinkingContent ?? extractedThinking) ?? undefined,
         progress: updatedMeeting.progress,
         current_step: updatedMeeting.currentStep ?? undefined,
         error: updatedMeeting.error ?? undefined,
