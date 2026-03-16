@@ -1,13 +1,12 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
 import { 
   ArrowLeft, 
   Calendar, 
-  Users, 
   Clock, 
   RefreshCw, 
   FileText,
@@ -17,7 +16,8 @@ import {
   Check,
   Brain,
   Edit,
-  X
+  X,
+  Printer
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -33,7 +33,6 @@ type ViewMode = "summary" | "transcript"
 
 export default function MeetingDetailPage() {
   const params = useParams()
-  const router = useRouter()
   const meetingId = params.id as string
 
   // State
@@ -395,8 +394,20 @@ export default function MeetingDetailPage() {
               </Button>
             </div>
 
-            {viewMode === "summary" && meeting.transcript && (
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/meeting/${meeting.id}/print?autoprint=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button variant="outline" size="sm">
+                  <Printer className="size-4 mr-2" />
+                  导出 PDF
+                </Button>
+              </Link>
+
+              {viewMode === "summary" && meeting.transcript && (
+                <>
                 {/* Edit button */}
                 {displaySummary && !isEditing && (
                   <Button
@@ -494,8 +505,9 @@ export default function MeetingDetailPage() {
                     </>
                   )}
                 </Button>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
 
           <Separator />
