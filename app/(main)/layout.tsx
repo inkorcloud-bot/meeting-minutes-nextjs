@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Upload, List } from "lucide-react";
+import { Activity, FileText, Upload, List } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -18,6 +18,7 @@ export default function MainLayout({
   const navLinks = [
     { href: "/upload", label: "上传", icon: Upload },
     { href: "/meetings", label: "会议列表", icon: List },
+    { href: "/health", label: "服务状态", icon: Activity },
   ];
 
   return (
