@@ -15,7 +15,9 @@ import {
   Loader2,
   Copy,
   Check,
-  Brain
+  Brain,
+  Edit,
+  X
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -24,6 +26,7 @@ import { Separator } from "@/components/ui/separator"
 import { Progress, ProgressTrack, ProgressIndicator } from "@/components/ui/progress"
 import { StatusBadge } from "@/components/status-badge"
 import { SummaryViewer } from "@/components/summary-viewer"
+import { MeetingEditor } from "@/components/meeting-editor"
 import type { MeetingResponseData, MeetingStatus } from "@/lib/types"
 
 type ViewMode = "summary" | "transcript"
@@ -42,21 +45,7 @@ export default function MeetingDetailPage() {
   const [regeneratingSummary, setRegeneratingSummary] = useState<string>("")
   const [showThinking, setShowThinking] = useState(false)
   const [copied, setCopied] = useState(false)
-
-  // Extract thinking content from summary
-  const extractThinkingContent = (summary: string): { thinkingContent: string | null; cleanedContent: string } => {
-    let thinkingContent: string | null = null
-    let cleaned = summary
-
-    // Format 1: HTML comment <!-- 思考过程：... -->
-    const htmlCommentMatch = summary.match(/<!--\s*思考过程[：:]\s*([\s\S]*?)-->/)
-    if (htmlCommentMatch) {
-      thinkingContent = htmlCommentMatch[1].trim()
-      cleaned = summary.replace(/<!--\s*思考过程[：:][\s\S]*?-->\s*/g, "")
-    }
-
-    return { thinkingContent, cleanedContent: cleaned.trim() }
-  }
+  const [isEditing, setIsEditing] = useState(false)
 
   // Check if meeting is in a processing state
   const isProcessing = (status: string): boolean => {
@@ -202,6 +191,29 @@ export default function MeetingDetailPage() {
     } finally {
       setIsRegenerating(false)
       setRegeneratingSummary("")
+    }
+  }
+
+  // Handle save summary from editor
+  const handleSaveSummary = async (summary: string, transcript?: string) => {
+    try {
+      const response = await fetch(`/api/meetings/${meeting?.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ summary, transcript })
+      })
+      
+      if (!response.ok) {
+        const result = await response.json()
+        throw new Error(result.message || "保存失败")
+      }
+      
+      // Update local state with new summary and transcript
+      setMeeting(prev => prev ? { ...prev, summary, ...(transcript !== undefined && { transcript }) } : null)
+      setIsEditing(false)
+      toast.success("纪要保存成功")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "保存失败")
     }
   }
 
@@ -385,8 +397,32 @@ export default function MeetingDetailPage() {
 
             {viewMode === "summary" && meeting.transcript && (
               <div className="flex items-center gap-2">
+                {/* Edit button */}
+                {displaySummary && !isEditing && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Edit className="size-4 mr-2" />
+                    编辑
+                  </Button>
+                )}
+                
+                {/* Cancel edit button */}
+                {isEditing && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(false)}
+                  >
+                    <X className="size-4 mr-2" />
+                    取消
+                  </Button>
+                )}
+                
                 {/* Thinking toggle button */}
-                {displaySummary && extractThinkingContent(displaySummary).thinkingContent && (
+                {meeting.thinkingContent && (
                   <Button
                     variant={showThinking ? "secondary" : "outline"}
                     size="sm"
@@ -403,11 +439,26 @@ export default function MeetingDetailPage() {
                     variant="outline"
                     size="sm"
                     onClick={async () => {
-                      const { cleanedContent } = extractThinkingContent(displaySummary)
-                      await navigator.clipboard.writeText(cleanedContent)
-                      setCopied(true)
-                      toast.success("已复制到剪贴板")
-                      setTimeout(() => setCopied(false), 2000)
+                      try {
+                        if (navigator.clipboard?.writeText) {
+                          await navigator.clipboard.writeText(displaySummary)
+                        } else {
+                          // Fallback for non-HTTPS environments
+                          const textarea = document.createElement('textarea')
+                          textarea.value = displaySummary
+                          textarea.style.position = 'fixed'
+                          textarea.style.opacity = '0'
+                          document.body.appendChild(textarea)
+                          textarea.select()
+                          document.execCommand('copy')
+                          document.body.removeChild(textarea)
+                        }
+                        setCopied(true)
+                        toast.success("已复制到剪贴板")
+                        setTimeout(() => setCopied(false), 2000)
+                      } catch {
+                        toast.error("复制失败")
+                      }
                     }}
                   >
                     {copied ? (
@@ -453,11 +504,32 @@ export default function MeetingDetailPage() {
           {viewMode === "summary" && (
             <Card>
               <CardContent className="pt-6">
-                {showSummary ? (
-                  <SummaryViewer 
-                    summary={displaySummary || ""} 
-                    showThinking={showThinking}
+                {isEditing ? (
+                  <MeetingEditor
+                    initialSummary={displaySummary || ""}
+                    initialTranscript={meeting.transcript}
+                    onSave={handleSaveSummary}
+                    isSaving={false}
                   />
+                ) : showSummary ? (
+                  <div className="space-y-6">
+                    {/* Thinking content section */}
+                    {showThinking && meeting.thinkingContent && (
+                      <div className="bg-muted/30 rounded-lg p-4 border border-border">
+                        <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+                          <Brain className="size-4 text-primary" />
+                          思考过程
+                        </h3>
+                        <div className="bg-background rounded-lg p-4 border border-border">
+                          <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
+                            {meeting.thinkingContent}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                    {/* Summary content */}
+                    <SummaryViewer summary={displaySummary || ""} />
+                  </div>
                 ) : isRegenerating ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="size-8 animate-spin text-muted-foreground" />

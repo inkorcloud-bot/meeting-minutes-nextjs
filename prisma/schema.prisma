@@ -18,9 +18,10 @@ model Meeting {
   status        String    @default("uploaded")
   audioPath     String?   @map("audio_path")
   audioDuration Float?    @map("audio_duration")
-  transcript    String?
-  summary       String?
-  progress      Int       @default(0)
+  transcript       String?
+  summary          String?
+  thinkingContent  String?   @map("thinking_content")
+  progress         Int       @default(0)
   currentStep   String?   @map("current_step")
   error         String?
   asrJobId      String?   @map("asr_job_id")

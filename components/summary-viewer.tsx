@@ -11,42 +11,14 @@ marked.setOptions({
 
 interface SummaryViewerProps {
   summary: string
-  showThinking?: boolean
   className?: string
 }
 
-/**
- * Extract thinking content and cleaned content from summary
- * Supports HTML comment format: <!-- 思考过程：... -->
- */
-function extractThinkingContent(summary: string): { thinkingContent: string | null; cleanedContent: string } {
-  let thinkingContent: string | null = null
-  let cleaned = summary
-
-  // Format: HTML comment <!-- 思考过程：... -->
-  const htmlCommentMatch = summary.match(/<!--\s*思考过程[：:]\s*([\s\S]*?)-->/)
-  if (htmlCommentMatch) {
-    thinkingContent = htmlCommentMatch[1].trim()
-    cleaned = summary.replace(/<!--\s*思考过程[：:][\s\S]*?-->\s*/g, "")
-  }
-
-  return { thinkingContent, cleanedContent: cleaned.trim() }
-}
-
-export function SummaryViewer({ summary, showThinking, className }: SummaryViewerProps) {
-  const { thinkingContent, cleanedContent } = useMemo(() => {
-    return extractThinkingContent(summary)
-  }, [summary])
-
-  // Content to display based on showThinking state
-  const displayContent = showThinking && thinkingContent
-    ? `## 思考过程\n\n${thinkingContent}\n\n---\n\n## 会议纪要\n\n${cleanedContent}`
-    : cleanedContent
-
+export function SummaryViewer({ summary, className }: SummaryViewerProps) {
   // HTML content for rendering
   const htmlContent = useMemo(() => {
-    return marked.parse(displayContent) as string
-  }, [displayContent])
+    return marked.parse(summary) as string
+  }, [summary])
 
   return (
     <div

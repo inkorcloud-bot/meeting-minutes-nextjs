@@ -76,6 +76,7 @@ export interface MeetingResponseData {
   audio_duration?: number;
   transcript?: string;
   summary?: string;
+  thinkingContent?: string; // 思考过程内容
   progress: number;
   current_step?: string;
   error?: string;
